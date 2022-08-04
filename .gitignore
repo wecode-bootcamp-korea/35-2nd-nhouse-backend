@@ -402,4 +402,5 @@ zsdoc/data
 
 
 my_settings.py
+data-uploader.py
 CSV
