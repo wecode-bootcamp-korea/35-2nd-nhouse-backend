@@ -1,7 +1,8 @@
-from django.db    import models
+from django.db       import models
 
-from core.models  import TimeStampModel
-from users.models import User
+from core.models     import TimeStampModel
+from users.models    import User
+from products.models import Product
 
 class Post(TimeStampModel):
     title       = models.CharField(max_length=45)
@@ -16,3 +17,20 @@ class Post(TimeStampModel):
 
     class Meta:
         db_table = 'posts'
+
+class Photo(models.Model):
+    description = models.TextField()
+    url         = models.URLField(max_length=500)
+    post        = models.ForeignKey(Post, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'photos'
+
+class Tag(models.Model):
+    point_x = models.DecimalField(decimal_places=3, max_digits=10)
+    point_y = models.DecimalField(decimal_places=3, max_digits=10)
+    photo   = models.ForeignKey(Photo, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'tags'
