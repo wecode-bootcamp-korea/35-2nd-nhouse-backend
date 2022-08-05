@@ -1,7 +1,7 @@
 from django.http       import JsonResponse
 from django.views      import View
 
-from products.models import FirstCategory
+from products.models import FirstCategory, Product, AdditionalProduct
 
 class FirstCategoryView(View):
     def get(self, request):
@@ -17,3 +17,37 @@ class FirstCategoryView(View):
         }for first_category in first_categories]
 
         return JsonResponse({'results': results}, status=200)
+
+
+class ProductDetailView(View):
+    class ProductDetailView(View):
+    @query_debugger
+    def get(self, request, product_id):
+        additional_products = AdditionalProduct.objects.filter(product=product_id).select_related("additional_product")
+        products = Product.objects.filter(id=product_id)\
+            .select_related("second_category__first_category","brand")\
+            .prefetch_related('productoption_set__size','productoption_set__color','additional_product','thumbnailimage_set')
+        
+        result=[{
+            'product_id' : product.id,
+            'first_category' : [{
+                    'first_category_id'  : product.second_category.first_category.id,
+                    'first_category_name': product.second_category.first_category.name
+                }],
+            'second_category' : [{
+                    'second_category_id'  : product.second_category.id,
+                    'second_category_name': product.second_category.name
+                }],
+            'brand'          : product.brand.name,
+            'title'          : product.title,
+            'price'          : product.price,
+            'thumbnail_images'    : [thumbnailimage.url for thumbnailimage in product.thumbnailimage_set.all()],
+            'additional_products': [additional_product.additional_product.title for additional_product in additional_products],
+            'product_options'    : [{
+                'size_option'     : productoption.size.name,
+                'color_option'    : productoption.color.name,
+                'additional_price': productoption.additional_price
+                }for productoption in product.productoption_set.all()]
+            }for product in products]
+
+        return JsonResponse({'result': result }, status=200)
