@@ -35,7 +35,7 @@ class Brand(models.Model):
 
 class Product(TimeStampModel):
     title              = models.CharField(max_length=45)
-    main_image         = models.URLField(max_length=300)
+    main_image         = models.URLField(max_length=500)
     price              = models.DecimalField(decimal_places=3, max_digits=10)
     brand              = models.ForeignKey(Brand, on_delete=models.CASCADE)
     second_category    = models.ForeignKey(SecondCategory, on_delete=models.CASCADE)
@@ -62,14 +62,14 @@ class AdditionalProduct(models.Model):
         db_table = 'additional_products'
 
 class DetailImage(models.Model):
-    url     = models.URLField(max_length=300)
+    url     = models.URLField(max_length=500)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'detail_images'
 
 class ThumbnailImage(models.Model):
-    url     = models.URLField(max_length=300)
+    url     = models.URLField(max_length=500)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
 
     class Meta:

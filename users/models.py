@@ -6,7 +6,7 @@ class User(TimeStampModel):
     kakao_id      = models.CharField(max_length=200, unique=True)
     email         = models.CharField(max_length=200, null=True)
     nickname      = models.CharField(max_length=50, null=True)
-    profile_image = models.URLField(max_length=300, null=True)
+    profile_image = models.URLField(max_length=500, null=True)
     followers     = models.ManyToManyField('self',through='Follow')
 
     class Meta:
