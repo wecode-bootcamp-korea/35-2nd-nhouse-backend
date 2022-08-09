@@ -62,33 +62,37 @@ class PostListView(View):
 
 class PostItemView(View):
     def get(self, request, post_id):
-        post = Post.objects\
-            .select_related('user')\
-            .prefetch_related('photo_set', 'photo_set__tag_set__product')\
-            .get(id=1)
-        
-        result = {
-            'user' : {
-                'id'           : post.user.nickname,
-                'profile_image': post.user.profile_image,
-                'nickname'     : post.user.nickname
-            },
-            'post' : {
-                'id'         : post.id,
-                'contents' : [{
-                    'photo_id'   : photo.id,
-                    'description': photo.description,
-                    'url'        : photo.url,
-                    'tags' : [{
-                        'point_x' : tag.point_x,
-                        'point_y' : tag.point_y,
-                        'product' : {
-                            'id'   : tag.product.id,
-                            'title': tag.product.title
-                        }
-                    } for tag in photo.tag_set.all()] 
-                } for photo in post.photo_set.all()],
+        try: 
+            post = Post.objects\
+                .select_related('user')\
+                .prefetch_related('photo_set', 'photo_set__tag_set__product')\
+                .get(id=post_id)
+            
+            result = {
+                'user' : {
+                    'id'           : post.user.id,
+                    'profile_image': post.user.profile_image,
+                    'nickname'     : post.user.nickname
+                },
+                'post' : {
+                    'id'         : post.id,
+                    'contents' : [{
+                        'photo_id'   : photo.id,
+                        'description': photo.description,
+                        'url'        : photo.url,
+                        'tags' : [{
+                            'point_x' : tag.point_x,
+                            'point_y' : tag.point_y,
+                            'product' : {
+                                'id'   : tag.product.id,
+                                'title': tag.product.title
+                            }
+                        } for tag in photo.tag_set.all()] 
+                    } for photo in post.photo_set.all()],
+                }
             }
-        }
 
-        return JsonResponse({'results': result}, status=200)
+            return JsonResponse({'results': result}, status=200)
+
+        except Post.DoesNotExist:
+                return JsonResponse({"message":"INVALID_POST"}, status=400)
