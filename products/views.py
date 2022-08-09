@@ -20,14 +20,11 @@ class FirstCategoryView(View):
 
 
 class ProductDetailView(View):
-    class ProductDetailView(View):
-    @query_debugger
     def get(self, request, product_id):
-        additional_products = AdditionalProduct.objects.filter(product=product_id).select_related("additional_product")
         products = Product.objects.filter(id=product_id)\
             .select_related("second_category__first_category","brand")\
-            .prefetch_related('productoption_set__size','productoption_set__color','additional_product','thumbnailimage_set')
-        
+            .prefetch_related('productoption_set__size','productoption_set__color','additional_product','thumbnailimage_set', 'additional_product__brand')
+
         result=[{
             'product_id' : product.id,
             'first_category' : [{
@@ -42,12 +39,18 @@ class ProductDetailView(View):
             'title'          : product.title,
             'price'          : product.price,
             'thumbnail_images'    : [thumbnailimage.url for thumbnailimage in product.thumbnailimage_set.all()],
-            'additional_products': [additional_product.additional_product.title for additional_product in additional_products],
+            'additional_products' : [{
+                'id'    : additional_product.id,
+                'brand' : {
+                    'id'   : additional_product.brand.id,
+                    'name' : additional_product.brand.name
+                },
+            } for additional_product in product.additional_product.all()],
             'product_options'    : [{
                 'size_option'     : productoption.size.name,
                 'color_option'    : productoption.color.name,
                 'additional_price': productoption.additional_price
-                }for productoption in product.productoption_set.all()]
-            }for product in products]
+            }for productoption in product.productoption_set.all()]
+        }for product in products]
 
         return JsonResponse({'result': result }, status=200)
