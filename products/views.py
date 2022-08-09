@@ -20,7 +20,6 @@ class FirstCategoryView(View):
 
 
 class ProductDetailView(View):
-    @query_debugger
     def get(self, request, product_id):
         products = Product.objects.filter(id=product_id)\
             .select_related("second_category__first_category","brand")\

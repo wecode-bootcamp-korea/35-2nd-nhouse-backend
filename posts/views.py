@@ -1,9 +1,15 @@
+import json
+import boto3
+import uuid
+
 from django.http           import JsonResponse
 from django.views          import View
 from django.db.models      import Q
 from django.core.paginator import Paginator
+from django.conf           import settings
+from django.db             import transaction
 
-from posts.models          import Post
+from posts.models          import Post, Photo, Tag
 
 class PostListView(View):
     def get(self, request):
@@ -92,3 +98,92 @@ class PostItemView(View):
         }
 
         return JsonResponse({'results': result}, status=200)
+        
+class AWSFileUploader:
+    def __init__(self, config):
+        self.config = config
+        self.client = boto3.resource(
+            's3',
+            aws_access_key_id     = self.config['access_key_id'],
+            aws_secret_access_key = self.config['secret_access_key']
+        )
+
+    def upload(self, file):
+        try:
+            file._set_name(str(uuid.uuid4()))
+            key = f'posts/{str(uuid.uuid4())}'  
+            self.client.Bucket(self.config['bucket_name']).put_object(
+                Key=key, Body=file, ContentType='jpeg')
+            
+            return self.config['image_url'] + key
+            
+        except: 
+            return None
+
+class FileHandler:
+    def __init__(self, file_uploader):
+        self.file_uploader = file_uploader 
+
+    def upload(self, file):
+        return self.file_uploader.upload(file)
+
+
+class PostWriteView(View):
+    def post(self, request):
+        try:
+            data        = json.loads(request.POST.get('data'))
+            living_type = data.get('living_type')
+            room_size   = data.get('room_size')
+            family_type = data.get('family_type')
+            work_type   = data.get('work_type')
+            contents    = data.get('contents')
+            files       = request.FILES.getlist('photo')
+            user_id     = 1
+
+            if len(files) != len(contents):
+                return JsonResponse({'message':'INVALID_LENGTH'}, status=400)
+
+            post = Post.objects.create(
+                title       = 'fake title',
+                content     = 'fake contents',
+                cover_image = 'fake image url',
+                living_type = living_type,
+                room_size   = room_size,
+                family_type = family_type,
+                work_type   = work_type,
+                worker_type = 'fake worker type',
+                user_id     = user_id
+            )
+
+            file_uploader = AWSFileUploader(settings.AWS_CONFIG)
+            file_handler = FileHandler(file_uploader)
+            
+            with transaction.atomic():
+                for i in range(0, len(files)):
+                    photo_url = file_handler.upload(files[i])
+                    
+                    if not photo_url:
+                        return JsonResponse({'results': 'UPLOAD_FAILED'}, status=400)
+
+                    current_content = contents[i]
+
+                    photo = Photo.objects.create(
+                        description = current_content['description'],
+                        url         = photo_url,
+                        post        = post
+                    )
+                    
+                    tags = current_content.get('tags')
+                    if tags:
+                        for tag in tags:
+                            Tag.objects.create(
+                                point_x    = tag['point_x'],
+                                point_y    = tag['point_y'],
+                                photo      = photo,
+                                product_id = tag['product_id']
+                            )
+
+            return JsonResponse({'results': 'SUCCESS'}, status=201)
+        
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400) 
