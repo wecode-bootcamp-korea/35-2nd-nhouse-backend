@@ -53,8 +53,9 @@ class PostListView(View):
             'cover_image'      : page_item.cover_image,
             'first_description': page_item.photo_set.all()[0].description,
             'user' : {
-                'id' : page_item.user.id,
-                'nickname' : page_item.user.nickname
+                'id'           : page_item.user.id,
+                'nickname'     : page_item.user.nickname,
+                'profile_image': page_item.user.profile_image
             }
         } for page_item in page_items]
 
