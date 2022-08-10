@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 from pathlib     import Path
-from my_settings import DATABASES, SECRET_KEY, KAKAO_REST_API_KEY, ALGORITHM, REDIRECT_URI
+from my_settings import DATABASES, SECRET_KEY, ALGORITHM, KAKAO_CONFIG 
 
 import pymysql
 
