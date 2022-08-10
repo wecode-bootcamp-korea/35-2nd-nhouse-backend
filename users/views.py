@@ -13,10 +13,10 @@ class KakaoAPI:
     
     def get_access_token(self, authorization_code):
         data = {
-                'grant_type' : 'authorization_code',
-                'client_id' : self.KAKAO_CONFIG['api_key'],
-                'redirect_uri' : self.KAKAO_CONFIG['redirect_uri'],
-                'code' : authorization_code
+                'grant_type'  : 'authorization_code',
+                'client_id'   : self.config['api_key'],
+                'redirect_uri': self.config['redirect_uri'],
+                'code'        : authorization_code
             }
         token_response = requests.post("https://kauth.kakao.com/oauth/token", data=data).json()
         access_token   = token_response.get('access_token')

@@ -1,7 +1,10 @@
-from django.http       import JsonResponse
-from django.views      import View
+from django.http            import JsonResponse
+from django.views           import View
+from django.db.models       import Q
+from django.core.paginator  import Paginator
+from django.core.exceptions import FieldError
 
-from products.models import FirstCategory, Product, AdditionalProduct
+from products.models       import FirstCategory, Product
 
 class FirstCategoryView(View):
     def get(self, request):
@@ -48,3 +51,55 @@ class ProductDetailView(View):
         }for product in products]
 
         return JsonResponse({'result': result }, status=200)
+
+
+class ProductListView(View):
+    def get(self, request):
+        first_category_id  = request.GET.get('first_category')
+        second_category_id = request.GET.get('second_category')
+        color              = request.GET.get('color')
+        size               = request.GET.get('size')
+        sort               = request.GET.get('sort', 'id')
+        limit              = int(request.GET.get("limit", 8))
+        offset             = int(request.GET.get("offset", 1))
+
+        product_Q = Q()
+
+        if second_category_id:
+            product_Q = Q(second_category = second_category_id)
+
+        elif first_category_id:
+            product_Q = Q(second_category__first_category_id = first_category_id)
+        
+        if color:
+            product_Q &= Q(productoption__color__name=color)
+
+        if size:
+            product_Q &= Q(productoption__size__name=size)
+        
+        sort_menu={
+            'id'        : 'id',
+            'high_price': '-price',
+            'low_price' : 'price',
+            'best'      : 'productoption__stock'
+            }
+
+        if not sort in sort_menu:
+            return JsonResponse({"message": "SORT_INVALID_VALUE"})
+        
+        products = Product.objects.filter(product_Q).order_by(sort_menu.get(sort))\
+            .select_related('second_category__first_category','brand')
+
+        p = Paginator(products, limit)
+
+        results = [{
+            'product_id'        : product.id,
+            'title'             : product.title,
+            'brand'             : product.brand.name,
+            'price'             : product.price,
+            'first_category_id' : product.second_category.first_category.id,
+            'second_category_id': product.second_category.first_category.id,
+            'main_image'        : product.main_image,
+            }for product in p.page(offset)]
+
+        return JsonResponse({"results":results, "exist_nest_page":p.page(offset).has_next()},status = 200)
