@@ -85,8 +85,9 @@ class PostItemView(View):
                             'point_x' : tag.point_x,
                             'point_y' : tag.point_y,
                             'product' : {
-                                'id'   : tag.product.id,
-                                'title': tag.product.title
+                                'id'        : tag.product.id,
+                                'title'     : tag.product.title,
+                                'main_image': tag.product.main_image
                             }
                         } for tag in photo.tag_set.all()] 
                     } for photo in post.photo_set.all()],
