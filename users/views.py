@@ -1,11 +1,13 @@
 import jwt
 import requests
+import json
 
 from django.http      import JsonResponse
 from django.views     import View
 from django.conf      import settings
 
-from users.models     import User
+from users.models     import User, Follow
+from core.utils       import login_decorator
 
 class KakaoAPI:
     def __init__(self, config):
@@ -86,3 +88,34 @@ class LoginView(View):
 
         except KeyError:
             return JsonResponse({"message":"KEY_ERROR"}, status=400)
+
+class FollowView(View):
+    @login_decorator
+    def post(self, request):
+        try:
+            data              = json.loads(request.body)
+            following_user_id = data['following_user_id']
+
+            user = request.user
+            following_user = User.objects.get(id = following_user_id)
+
+            if user == following_user:
+                return JsonResponse({"message" : "CANNOT_FOLLOW_ONESELF"}, status=400)
+
+            follow, is_created = Follow.objects.get_or_create(
+                user           = user,
+                following_user = following_user
+            )
+
+            if not is_created:
+                follow.delete()
+                return JsonResponse({"message" : "UNFOLLOW_SUCCESS"}, status=200) 
+
+            return JsonResponse({"message" : "FOLLOW_SUCCESS"}, status=201)  
+
+        except KeyError:
+            return JsonResponse({"message":"KEY_ERROR"}, status=400)
+
+        except User.DoesNotExist:
+            return JsonResponse({"message" : "INVALID_USER_TO_FOLLOW"}, status=400)
+        
