@@ -24,11 +24,12 @@ class FirstCategoryView(View):
 
 class ProductDetailView(View):
     def get(self, request, product_id):
-        products = Product.objects.filter(id=product_id)\
+        product = Product.objects\
             .select_related("second_category__first_category","brand")\
-            .prefetch_related('productoption_set__size','productoption_set__color','additional_product','thumbnailimage_set')
+            .prefetch_related('productoption_set__size','productoption_set__color','additional_product','thumbnailimage_set')\
+            .get(id = product_id)
 
-        result=[{
+        result={
             'product_id' : product.id,
             'first_category' : [{
                     'first_category_id'  : product.second_category.first_category.id,
@@ -48,7 +49,7 @@ class ProductDetailView(View):
                 'color_option'    : productoption.color.name,
                 'additional_price': productoption.additional_price
             }for productoption in product.productoption_set.all()]
-        }for product in products]
+        }
 
         return JsonResponse({'result': result }, status=200)
 
