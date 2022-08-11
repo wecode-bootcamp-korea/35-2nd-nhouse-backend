@@ -50,7 +50,7 @@ class PostListView(View):
         page_items = p.page(offset) 
         posts = [{
             'id'               : page_item.id,
-            'cover_image'      : page_item.cover_image,
+            'cover_image'      : page_item.photo_set.all()[0].url,
             'first_description': page_item.photo_set.all()[0].description,
             'user' : {
                 'id'           : page_item.user.id,
