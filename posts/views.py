@@ -2,8 +2,10 @@ from django.http           import JsonResponse
 from django.views          import View
 from django.db.models      import Q
 from django.core.paginator import Paginator
+from django.db.models      import Count
 
-from posts.models          import Post
+from posts.models          import Post, User
+from core.utils            import login_decorator
 
 class PostListView(View):
     def get(self, request):
@@ -97,3 +99,66 @@ class PostItemView(View):
 
         except Post.DoesNotExist:
                 return JsonResponse({"message":"INVALID_POST"}, status=400)
+
+class FollowListView(View):
+    @login_decorator
+    def get(self, request):
+        limit       = int(request.GET.get("limit", 10))
+        offset      = int(request.GET.get("offset", 1))
+        followings  = request.user.followers.all()
+
+        if followings:
+            posts = Post.objects.filter(user__in = followings)\
+                    .order_by('-created_at')\
+                    .select_related('user')\
+                    .prefetch_related('photo_set')
+
+            p = Paginator(posts, limit)
+            pages_count = p.num_pages
+
+            if offset < 1 or offset > pages_count:
+                return JsonResponse({'result': 'INVALID_PAGE'}, status=404)
+
+            total = {
+                'total_items' : posts.count(),
+                'total_pages' : pages_count,
+                'current_page': offset,
+                'limit'       : limit
+            }
+            
+            page_items = p.page(offset) 
+            posts = [{
+                'id'               : page_item.id,
+                'cover_image'      : page_item.photo_set.all()[0].url,
+                'first_description': page_item.photo_set.all()[0].description,
+                'user' : {
+                    'id'           : page_item.user.id,
+                    'nickname'     : page_item.user.nickname,
+                    'profile_image': page_item.user.profile_image
+                }
+            } for page_item in page_items]
+
+            return JsonResponse({'total' : total, 'posts': posts}, status=200)
+
+        else:
+            top_10_users = User.objects.all()\
+                .prefetch_related('post_set__photo_set')\
+                .annotate(follower_count=Count('followed_by'))\
+                .order_by('-follower_count')[:10]
+           
+            result = [{
+                'user' : {
+                    'id'           : user.id,
+                    'nickname'     : user.nickname,
+                    'profile_image': user.profile_image
+                },
+                'posts' : [{
+                    'id'         : post.id,
+                    'cover_image': post.photo_set.all()[0].url
+                } for post in user.post_set.all()[:4]]
+            } for user in top_10_users]
+
+            return JsonResponse({'result' : result}, status=200)
+
+
+
