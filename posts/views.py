@@ -1,10 +1,16 @@
+import json
+import uuid
+import boto3
+
 from django.http           import JsonResponse
 from django.views          import View
 from django.db.models      import Q
 from django.core.paginator import Paginator
 from django.db.models      import Count
+from django.db             import transaction
 
-from posts.models          import Post, User
+from posts.models          import Post, Photo, Tag, User
+from nhouse.settings       import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 from core.utils            import login_decorator
 
 class PostListView(View):
@@ -163,3 +169,62 @@ class FollowListView(View):
 
 
 
+
+class PostView(View):
+
+    s3_client = boto3.client(
+        's3',
+        aws_access_key_id     = AWS_ACCESS_KEY_ID,
+        aws_secret_access_key = AWS_SECRET_ACCESS_KEY
+    )
+
+    @login_decorator
+    def post(self, request):
+        try:
+            data        = json.loads(request.POST.get('data'))
+            user        = request.user
+            living_type = data.get('living_type')
+            room_size   = data.get('room_size')
+            family_type = data.get('family_type')
+            work_type   = data.get('work_type')
+            description = data.get('contents_description')
+            tags        = data.get('tag')
+            filename    = request.FILES['filename']
+            url         = str(uuid.uuid4())
+            
+            with transaction.atomic():
+                post = Post.objects.create(
+                    living_type = living_type,
+                    room_size   = room_size,
+                    family_type = family_type,
+                    work_type   = work_type,
+                    user        = user,
+                    title       = 'none',
+                    content     = 'none',
+                    cover_image = 'none',
+                    worker_type = 'none'
+                )
+
+                photo = Photo.objects.create(
+                    post        = post,
+                    description = description,
+                    url         = "https://testnhousebucket.s3.ap-northeast-2.amazonaws.com/"+url,
+                )
+                
+                for tag in tags:
+                    Tag.objects.create(
+                        point_x    = tag['point_x'],
+                        point_y    = tag['point_y'],
+                        photo      = photo,
+                        product_id = tag['product_id']
+                    )
+
+            self.s3_client.upload_fileobj(
+                filename, "testnhousebucket", url)
+
+            return JsonResponse({"message":"SUCCESS"},status=200)
+
+        except KeyError:
+            return JsonResponse({"message":"KEYERROR"}, status = 400)
+        except User.DoesNotExist:
+            return JsonResponse({"message":"User Doesn Not Exist"}, status = 400)
