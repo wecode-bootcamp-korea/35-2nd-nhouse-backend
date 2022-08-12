@@ -8,9 +8,9 @@ from django.db.models      import Q
 from django.core.paginator import Paginator
 from django.db.models      import Count
 from django.db             import transaction
+from django.conf           import settings
 
 from posts.models          import Post, Photo, Tag, User
-from nhouse.settings       import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 from core.utils            import login_decorator
 
 class PostListView(View):
@@ -168,63 +168,90 @@ class FollowListView(View):
             return JsonResponse({'result' : result}, status=200)
 
 
+class AWSFileUploader:
+    def __init__(self, config):
+        self.config = config
+        self.client = boto3.resource(
+            's3',
+            aws_access_key_id     = self.config['access_key_id'],
+            aws_secret_access_key = self.config['secret_access_key']
+        )
 
+    def upload(self, file):
+        try:
+            file._set_name(str(uuid.uuid4()))
+            key = f'posts/{str(uuid.uuid4())}'  
+            self.client.Bucket(self.config['bucket_name']).put_object(
+                Key=key, Body=file, ContentType='jpeg')
+            
+            return self.config['image_url'] + key
+            
+        except: 
+            return None
+
+class FileHandler:
+    def __init__(self, file_uploader):
+        self.file_uploader = file_uploader 
+
+    def upload(self, file):
+        return self.file_uploader.upload(file)
 
 class PostView(View):
-
-    s3_client = boto3.client(
-        's3',
-        aws_access_key_id     = AWS_ACCESS_KEY_ID,
-        aws_secret_access_key = AWS_SECRET_ACCESS_KEY
-    )
-
-    @login_decorator
     def post(self, request):
         try:
             data        = json.loads(request.POST.get('data'))
-            user        = request.user
             living_type = data.get('living_type')
             room_size   = data.get('room_size')
             family_type = data.get('family_type')
             work_type   = data.get('work_type')
-            description = data.get('contents_description')
-            tags        = data.get('tag')
-            filename    = request.FILES['filename']
-            url         = str(uuid.uuid4())
+            contents    = data.get('contents')
+            files       = request.FILES.getlist('photo')
+            user_id     = 1
+
+            if len(files) != len(contents):
+                return JsonResponse({'message':'INVALID_LENGTH'}, status=400)
+
+            post = Post.objects.create(
+                title       = 'fake title',
+                content     = 'fake contents',
+                cover_image = 'fake image url',
+                living_type = living_type,
+                room_size   = room_size,
+                family_type = family_type,
+                work_type   = work_type,
+                worker_type = 'fake worker type',
+                user_id     = user_id
+            )
+
+            file_uploader = AWSFileUploader(settings.AWS_CONFIG)
+            file_handler = FileHandler(file_uploader)
             
             with transaction.atomic():
-                post = Post.objects.create(
-                    living_type = living_type,
-                    room_size   = room_size,
-                    family_type = family_type,
-                    work_type   = work_type,
-                    user        = user,
-                    title       = 'none',
-                    content     = 'none',
-                    cover_image = 'none',
-                    worker_type = 'none'
-                )
+                for i in range(0, len(files)):
+                    photo_url = file_handler.upload(files[i])
+                    
+                    if not photo_url:
+                        return JsonResponse({'results': 'UPLOAD_FAILED'}, status=400)
 
-                photo = Photo.objects.create(
-                    post        = post,
-                    description = description,
-                    url         = "https://testnhousebucket.s3.ap-northeast-2.amazonaws.com/"+url,
-                )
-                
-                for tag in tags:
-                    Tag.objects.create(
-                        point_x    = tag['point_x'],
-                        point_y    = tag['point_y'],
-                        photo      = photo,
-                        product_id = tag['product_id']
+                    current_content = contents[i]
+
+                    photo = Photo.objects.create(
+                        description = current_content['description'],
+                        url         = photo_url,
+                        post        = post
                     )
+                    
+                    tags = current_content.get('tags')
+                    if tags:
+                        for tag in tags:
+                            Tag.objects.create(
+                                point_x    = tag['point_x'],
+                                point_y    = tag['point_y'],
+                                photo      = photo,
+                                product_id = tag['product_id']
+                            )
 
-            self.s3_client.upload_fileobj(
-                filename, "testnhousebucket", url)
-
-            return JsonResponse({"message":"SUCCESS"},status=200)
-
+            return JsonResponse({'results': 'SUCCESS'}, status=201)
+        
         except KeyError:
-            return JsonResponse({"message":"KEYERROR"}, status = 400)
-        except User.DoesNotExist:
-            return JsonResponse({"message":"User Doesn Not Exist"}, status = 400)
+            return JsonResponse({'message':'KEY_ERROR'}, status=400) 
