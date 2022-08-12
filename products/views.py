@@ -99,7 +99,7 @@ class ProductListView(View):
             'brand'             : product.brand.name,
             'price'             : product.price,
             'first_category_id' : product.second_category.first_category.id,
-            'second_category_id': product.second_category.first_category.id,
+            'second_category_id': product.second_category.id,
             'main_image'        : product.main_image,
             }for product in p.page(offset)]
 
